@@ -1,0 +1,1282 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Campos vectoriales complejos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%80%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=STIX+Two+Text:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    --font-mate: "STIX Two Text", "Cambria Math", Cambria, Georgia, serif;
+    --bg: #eef2f4;
+    --panel: #ffffff;
+    --field: #ffffff;
+    --ink: #16202a;
+    --ink-rgb: 22,32,42;
+    --muted: #56626e;
+    --line: #cfd8df;
+    --accent: #31688e;
+    --accent-ink: #ffffff;
+    --accent-soft: #dde8f0;
+    --error: #a3202e;
+    --ok: #1f6e4e;
+    --plot-bg: #ffffff;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11161c;
+      --panel: #18202a;
+      --field: #0f141a;
+      --ink: #e3e8ee;
+      --ink-rgb: 227,232,238;
+      --muted: #93a0ad;
+      --line: #2c3743;
+      --accent: #6ccf9c;
+      --accent-ink: #0b1712;
+      --accent-soft: #1c2d27;
+      --error: #ff8f99;
+      --ok: #79d7a6;
+      --plot-bg: #18202a;
+      color-scheme: dark;
+    }
+    /* la gráfica conserva un fondo claro: el morado oscuro de viridis
+       desaparece sobre fondo oscuro */
+    .grafica {
+      --plot-bg: #eef1f4; --panel: #f7f9fa; --field: #f7f9fa; --ink: #16202a; --ink-rgb: 22,32,42;
+      --muted: #4e5a66; --line: #c9d2d9; --accent: #31688e; --accent-ink: #ffffff; --ok: #1f6e4e;
+      color-scheme: light; color: var(--ink);
+    }
+  }
+  * { box-sizing: border-box; }
+  :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+  .app {
+    max-width: 1480px; margin: 0 auto;
+    padding: 24px clamp(12px, 3vw, 36px) 40px;
+    display: grid;
+    grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
+    grid-template-areas: "cab graf" "ec graf" "op graf";
+    grid-template-rows: auto auto 1fr;
+    column-gap: clamp(20px, 3vw, 40px); row-gap: 20px;
+    align-items: start;
+  }
+  .cabecera { grid-area: cab; }
+  .ecuacion { grid-area: ec; }
+  .opciones { grid-area: op; }
+  .grafica { grid-area: graf; position: sticky; top: calc(14px + env(safe-area-inset-top, 0px)); align-self: start; }
+
+  h1 {
+    font: 600 29px/1.1 var(--font-mate); margin: 0 0 6px; letter-spacing: -0.005em;
+  }
+  .sub { margin: 0; color: var(--muted); font-size: 14.5px; }
+  .mate { font-family: var(--font-mate); font-size: 1.08em; }
+
+  label, legend { font-size: 13px; color: var(--muted); }
+  select, input[type="text"], input[type="number"], textarea {
+    width: 100%; font: inherit; color: var(--ink); background: var(--field);
+    border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px;
+  }
+  select { padding-right: 28px; }
+  input[type="number"], input[type="text"] { font-family: var(--font-mono); font-size: 14px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  select:focus-visible, input:focus-visible, textarea:focus-visible { outline-offset: 0; border-color: var(--accent); }
+
+  .fz { display: block; font: italic 500 21px/1 var(--font-mate); color: var(--ink); margin: 16px 0 8px; }
+  .fz span { font-style: normal; }
+  textarea#ec {
+    font: 500 16px/1.45 var(--font-mono); resize: vertical; min-height: 66px; padding: 9px 11px;
+  }
+  .fila-boton { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+  .primario {
+    flex: none; font: 600 15px var(--font-ui); color: var(--accent-ink); background: var(--accent);
+    border: 0; border-radius: 4px; padding: 10px 22px; cursor: pointer;
+  }
+  .primario:disabled { opacity: .6; cursor: progress; }
+  .atajo { font-size: 12.5px; color: var(--muted); }
+  kbd { font: 500 11.5px var(--font-mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; background: var(--panel); }
+  .estado { min-height: 1.5em; margin: 10px 0 0; font-size: 13.5px; color: var(--muted); }
+  .estado.ok { color: var(--ok); }
+  .estado.error { color: var(--error); }
+
+  details.ayuda { margin-top: 12px; font-size: 13.5px; color: var(--muted); border-left: 2px solid var(--line); padding-left: 12px; }
+  details.ayuda summary { cursor: pointer; color: var(--ink); font-weight: 500; }
+  details.ayuda ul { margin: 6px 0 0; padding-left: 16px; }
+  details.ayuda li { margin: 3px 0; }
+  code { font: 13px var(--font-mono); color: var(--ink); background: var(--accent-soft); padding: 0 3px; border-radius: 3px; }
+
+  fieldset { border: 0; border-top: 1px solid var(--line); margin: 0 0 18px; padding: 10px 0 0; }
+  legend { padding: 0 8px 0 0; font: 600 14px var(--font-ui); color: var(--ink); }
+  legend .mate { font-weight: 500; }
+  .par { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .campo { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; }
+  .deslizador { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 10px; margin-top: 10px; }
+  .deslizador label { grid-column: 1 / -1; }
+  .deslizador output { font: 13px var(--font-mono); min-width: 3.2em; text-align: right; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .casillas { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 12px; }
+  .casillas label { display: flex; align-items: center; gap: 6px; color: var(--ink); font-size: 14px; cursor: pointer; }
+  input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+
+  .segmentado { position: relative; display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+  .segmentado input { position: absolute; opacity: 0; pointer-events: none; }
+  .segmentado label { padding: 6px 14px; font-size: 14px; color: var(--ink); cursor: pointer; background: var(--field); }
+  .segmentado label + input + label { border-left: 1px solid var(--line); }
+  .segmentado input:checked + label { background: var(--accent); color: var(--accent-ink); }
+  .segmentado input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .grafica {
+    background: var(--plot-bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 10px 8px;
+  }
+  #caja { width: 100%; }
+  #lienzo { display: block; width: 100%; touch-action: none; cursor: crosshair; }
+  #lienzo.arrastrando { cursor: grabbing; }
+  .barra {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 8px 16px; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 8px;
+  }
+  #lectura { font: 13px var(--font-mono); color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 18px; min-height: 1.5em; }
+  #lectura i { font-family: var(--font-mate); font-size: 14.5px; }
+  .acciones { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .acciones button {
+    font: 500 13.5px var(--font-ui); color: var(--ink); background: var(--field);
+    border: 1px solid var(--line); border-radius: 4px; padding: 5px 11px; cursor: pointer;
+  }
+  .acciones button.icono { width: 32px; padding: 5px 0; font-size: 16px; line-height: 1; }
+  .acciones button:hover { border-color: var(--muted); }
+  #aviso { font-size: 12.5px; color: var(--ok); min-width: 0; }
+  .pista { margin: 6px 0 0; font-size: 12.5px; color: var(--muted); }
+
+  @media (max-width: 880px) {
+    .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "cab" "ec" "graf" "op"; }
+    .grafica { position: static; }
+    h1 { font-size: 25px; }
+    .opciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); column-gap: 28px; }
+  }
+  @media (max-width: 560px) {
+    .grafica { padding: 6px 4px 8px; margin: 0 -6px; }
+  }
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="cabecera">
+    <h1>Campos vectoriales complejos</h1>
+    <p class="sub">Dibuja <span class="mate"><i>ż</i> = <i>F</i>(<i>z</i>)</span> como el campo real (Re <i>F</i>, Im <i>F</i>), al estilo de StreamPlot.</p>
+  </header>
+
+  <section class="ecuacion" aria-label="Ecuación">
+    <div class="campo">
+      <label for="ejemplos">Ejemplos</label>
+      <select id="ejemplos"><option value="">Elige un ejemplo…</option></select>
+    </div>
+    <label class="fz" for="ec">F<span>(</span>z<span>) =</span></label>
+    <textarea id="ec" rows="2" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" placeholder="p. ej. wp(z/(1-z))"></textarea>
+    <div class="fila-boton">
+      <button id="graficar" class="primario" type="button">Graficar</button>
+      <span class="atajo">o <kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
+    </div>
+    <p id="estado" class="estado" role="status" aria-live="polite"></p>
+    <details class="ayuda" open>
+      <summary>Qué puedes escribir</summary>
+      <ul>
+        <li><code>*</code> para multiplicar (también vale <code>2z</code>) y <code>^</code> o <code>**</code> para potencias.</li>
+        <li><code>wp(z)</code>, <code>p(z)</code> o <code>℘(z)</code>: la ℘ de Weierstrass con los g2 y g3 de abajo.</li>
+        <li><code>R(z)</code>: la función racional definida abajo.</li>
+        <li><code>sin cos tan cot exp sinh cosh tanh sqrt log abs conj Re Im</code>, también con mayúscula inicial (<code>Sin</code>, <code>Exp</code>…).</li>
+        <li><code>I</code>, <code>i</code> o <code>1j</code> para la unidad imaginaria; <code>pi</code> y <code>e</code>.</li>
+      </ul>
+    </details>
+  </section>
+
+  <section class="grafica" aria-label="Gráfica">
+    <div id="caja"><canvas id="lienzo" role="img" aria-label="Gráfica del campo vectorial"></canvas></div>
+    <div class="barra">
+      <output id="lectura" aria-live="off"></output>
+      <div class="acciones">
+        <button id="acercar" class="icono" type="button" aria-label="Acercar" title="Acercar">+</button>
+        <button id="alejar" class="icono" type="button" aria-label="Alejar" title="Alejar">−</button>
+        <button id="inicial" type="button">Vista inicial</button>
+        <button id="descargar" type="button">Descargar PNG</button>
+        <button id="enlace" type="button">Copiar enlace</button>
+        <span id="aviso" role="status"></span>
+      </div>
+    </div>
+    <p class="pista">Acerca con la rueda del ratón o con + y −; arrastra para moverte. El enlace guarda la ecuación y todas las opciones.</p>
+  </section>
+
+  <section class="opciones" aria-label="Opciones">
+    <fieldset>
+      <legend>℘ de Weierstrass</legend>
+      <div class="par">
+        <div class="campo"><label for="g2">g2</label><input id="g2" type="text" value="1" spellcheck="false"></div>
+        <div class="campo"><label for="g3">g3</label><input id="g3" type="text" value="1j" spellcheck="false"></div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Racional <span class="mate"><i>R</i>(<i>z</i>) = <i>c</i>·Π(<i>z</i> − ceros) / Π(<i>z</i> − polos)</span></legend>
+      <div class="campo"><label for="ceros">Ceros, separados por comas</label><input id="ceros" type="text" value="1, 2, 1j" spellcheck="false"></div>
+      <div class="campo"><label for="polos">Polos, separados por comas</label><input id="polos" type="text" value="" placeholder="ninguno" spellcheck="false"></div>
+      <div class="campo"><label for="cte">Constante c</label><input id="cte" type="text" value="1" spellcheck="false"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Ventana</legend>
+      <div class="par">
+        <div class="campo"><label for="x0">x mín</label><input id="x0" type="number" step="any"></div>
+        <div class="campo"><label for="x1">x máx</label><input id="x1" type="number" step="any"></div>
+        <div class="campo"><label for="y0">y mín</label><input id="y0" type="number" step="any"></div>
+        <div class="campo"><label for="y1">y máx</label><input id="y1" type="number" step="any"></div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Gráfica</legend>
+      <div class="segmentado" role="radiogroup" aria-label="Tipo de gráfica">
+        <input type="radio" name="tipo" id="t-stream" value="stream" checked><label for="t-stream">Flujo</label>
+        <input type="radio" name="tipo" id="t-vector" value="vector"><label for="t-vector">Vectores</label>
+        <input type="radio" name="tipo" id="t-ambos" value="ambos"><label for="t-ambos">Ambos</label>
+      </div>
+      <div class="deslizador"><label for="dens">Densidad de líneas</label><input id="dens" type="range" min="0.5" max="4" step="0.1" value="1.6"><output id="dens-v" for="dens"></output></div>
+      <div class="deslizador"><label for="res">Resolución de la malla</label><input id="res" type="range" min="150" max="1200" step="50" value="400"><output id="res-v" for="res"></output></div>
+      <div class="deslizador"><label for="fl">Flechas por lado</label><input id="fl" type="range" min="10" max="60" step="1" value="25"><output id="fl-v" for="fl"></output></div>
+      <div class="casillas">
+        <label><input id="fondo" type="checkbox"> |F| de fondo</label>
+        <label><input id="conj" type="checkbox"> Conjugado</label>
+      </div>
+    </fieldset>
+  </section>
+</main>
+<script>
+/* ======================================================================
+   Núcleo matemático: aritmética compleja, analizador de expresiones
+   (sin eval) y ℘ de Weierstrass.  Port de campos_complejos.py
+   ====================================================================== */
+"use strict";
+
+function C(re, im) { return { re: re, im: im === undefined ? 0 : im }; }
+const UNO = C(1, 0), IU = C(0, 1);
+
+function add(a, b) { return C(a.re + b.re, a.im + b.im); }
+function sub(a, b) { return C(a.re - b.re, a.im - b.im); }
+function mul(a, b) { return C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re); }
+function mulr(a, r) { return C(a.re * r, a.im * r); }
+function neg(a) { return C(-a.re, -a.im); }
+function cabs(a) { return Math.hypot(a.re, a.im); }
+function div(a, b) {                       // algoritmo de Smith
+  const br = b.re, bi = b.im;
+  if (Math.abs(br) >= Math.abs(bi)) {
+    const r = bi / br, d = br + bi * r;
+    return C((a.re + a.im * r) / d, (a.im - a.re * r) / d);
+  }
+  const r = br / bi, d = br * r + bi;
+  return C((a.re * r + a.im) / d, (a.im * r - a.re) / d);
+}
+function cexp(a) { const e = Math.exp(a.re); return C(e * Math.cos(a.im), e * Math.sin(a.im)); }
+function clog(a) { return C(Math.log(Math.hypot(a.re, a.im)), Math.atan2(a.im, a.re)); }
+function csqrt(a) {
+  const r = Math.hypot(a.re, a.im);
+  if (r === 0) return C(0, 0);
+  const t = Math.sqrt((r + Math.abs(a.re)) / 2);
+  if (a.re >= 0) return C(t, a.im / (2 * t));
+  const neg_ = a.im < 0 || Object.is(a.im, -0);
+  return C(Math.abs(a.im) / (2 * t), neg_ ? -t : t);
+}
+function csin(a) { return C(Math.sin(a.re) * Math.cosh(a.im), Math.cos(a.re) * Math.sinh(a.im)); }
+function ccos(a) { return C(Math.cos(a.re) * Math.cosh(a.im), -Math.sin(a.re) * Math.sinh(a.im)); }
+function csinh(a) { return C(Math.sinh(a.re) * Math.cos(a.im), Math.cosh(a.re) * Math.sin(a.im)); }
+function ccosh(a) { return C(Math.cosh(a.re) * Math.cos(a.im), Math.sinh(a.re) * Math.sin(a.im)); }
+function ctan(a) {
+  if (Math.abs(a.im) > 20) return C(0, Math.sign(a.im));
+  const d = Math.cos(2 * a.re) + Math.cosh(2 * a.im);
+  return C(Math.sin(2 * a.re) / d, Math.sinh(2 * a.im) / d);
+}
+function ctanh(a) {
+  if (Math.abs(a.re) > 20) return C(Math.sign(a.re), 0);
+  const d = Math.cosh(2 * a.re) + Math.cos(2 * a.im);
+  return C(Math.sinh(2 * a.re) / d, Math.sin(2 * a.im) / d);
+}
+function ccot(a) { return div(UNO, ctan(a)); }
+function cpowi(a, n) {
+  let r = UNO, b = a, k = Math.abs(n);
+  while (k > 0) { if (k & 1) r = mul(r, b); b = mul(b, b); k >>= 1; }
+  return n < 0 ? div(UNO, r) : r;
+}
+function cpow(a, b) {
+  if (b.im === 0 && Number.isInteger(b.re) && Math.abs(b.re) <= 64) return cpowi(a, b.re);
+  if (a.re === 0 && a.im === 0) return b.re > 0 ? C(0, 0) : C(NaN, NaN);
+  return cexp(mul(b, clog(a)));
+}
+
+const FUNCIONES = {
+  sin: csin, cos: ccos, tan: ctan, cot: ccot, exp: cexp, sinh: csinh, cosh: ccosh,
+  tanh: ctanh, sqrt: csqrt, log: clog,
+  abs: a => C(cabs(a), 0), conj: a => C(a.re, -a.im),
+  Re: a => C(a.re, 0), Im: a => C(a.im, 0),
+};
+for (const k of Object.keys(FUNCIONES)) {          // alias Sin, Cos, Exp, Sqrt…
+  const K = k[0].toUpperCase() + k.slice(1);
+  if (!(K in FUNCIONES)) FUNCIONES[K] = FUNCIONES[k];
+}
+const CONSTANTES = { I: IU, i: IU, pi: C(Math.PI, 0), Pi: C(Math.PI, 0), e: C(Math.E, 0) };
+const NOMBRES_WP = ["wp", "p", "P", "\u2118"];
+
+/* ---------------------------- analizador ---------------------------- */
+function tokenizar(s) {
+  const toks = [];
+  let i = 0;
+  const reNum = /^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?([jJ])?/;
+  const reId = /^[A-Za-z_\u00C0-\u024F\u2118][A-Za-z0-9_\u00C0-\u024F\u2118]*/;
+  while (i < s.length) {
+    const ch = s[i], resto = s.slice(i);
+    if (/\s/.test(ch)) { i++; continue; }
+    let m;
+    if (/[\d.]/.test(ch) && (m = reNum.exec(resto))) {
+      toks.push({ t: "num", v: parseFloat(m[1] + (m[2] || "")), imag: !!m[3], pos: i });
+      i += m[0].length; continue;
+    }
+    if ((m = reId.exec(resto))) { toks.push({ t: "id", v: m[0], pos: i }); i += m[0].length; continue; }
+    if (resto.startsWith("**")) { toks.push({ t: "op", v: "^", pos: i }); i += 2; continue; }
+    if ("+-*/^(),".includes(ch)) { toks.push({ t: "op", v: ch, pos: i }); i++; continue; }
+    if (ch === "\u2212") { toks.push({ t: "op", v: "-", pos: i }); i++; continue; }   // signo menos tipográfico
+    if (ch === "\u00B7" || ch === "\u00D7") { toks.push({ t: "op", v: "*", pos: i }); i++; continue; }
+    throw new Error(`no reconozco el carácter «${ch}» (posición ${i + 1})`);
+  }
+  return toks;
+}
+
+function analizar(texto) {
+  const toks = tokenizar(texto);
+  if (!toks.length) throw new Error("escribe una expresión");
+  let k = 0;
+  const ver = () => toks[k];
+  const tomar = () => toks[k++];
+  const esOp = v => { const t = toks[k]; return !!t && t.t === "op" && t.v === v; };
+  const esperar = v => {
+    if (!esOp(v)) {
+      const t = toks[k];
+      throw new Error(t ? `esperaba «${v}» y encontré «${t.v}»` : `falta cerrar con «${v}»`);
+    }
+    k++;
+  };
+  const empiezaPrimario = t => !!t && (t.t === "num" || t.t === "id" || (t.t === "op" && t.v === "("));
+
+  function expr() {
+    let a = termino();
+    while (esOp("+") || esOp("-")) { const op = tomar().v; a = { k: "bin", op, a, b: termino() }; }
+    return a;
+  }
+  function termino() {
+    let a = unario();
+    for (;;) {
+      if (esOp("*") || esOp("/")) { const op = tomar().v; a = { k: "bin", op, a, b: unario() }; }
+      else if (empiezaPrimario(ver())) a = { k: "bin", op: "*", a, b: potencia() };  // 2z, 3(z+1)
+      else break;
+    }
+    return a;
+  }
+  function unario() {
+    if (esOp("-")) { tomar(); return { k: "neg", a: unario() }; }
+    if (esOp("+")) { tomar(); return unario(); }
+    return potencia();
+  }
+  function potencia() {
+    const base = primario();
+    if (esOp("^")) { tomar(); return { k: "bin", op: "^", a: base, b: unario() }; }
+    return base;
+  }
+  function primario() {
+    const t = tomar();
+    if (!t) throw new Error("la expresión está incompleta");
+    if (t.t === "num") return { k: "num", c: t.imag ? C(0, t.v) : C(t.v, 0) };
+    if (t.t === "id") {
+      if (esOp("(")) {
+        tomar();
+        if (esOp(")")) throw new Error(`${t.v}( ) necesita un argumento`);
+        const arg = expr();
+        if (esOp(",")) throw new Error(`${t.v}(…) recibe un solo argumento`);
+        esperar(")");
+        return { k: "call", f: t.v, arg };
+      }
+      return { k: "name", id: t.v };
+    }
+    if (t.v === "(") { const a = expr(); esperar(")"); return a; }
+    throw new Error(`no esperaba «${t.v}»`);
+  }
+  const arbol = expr();
+  if (k < toks.length) throw new Error(`sobra «${toks[k].v}» al final`);
+  return arbol;
+}
+
+function nombresUsados(n, s = new Set()) {
+  if (n.k === "name") s.add(n.id);
+  else if (n.k === "call") { s.add(n.f); nombresUsados(n.arg, s); }
+  else if (n.k === "neg") nombresUsados(n.a, s);
+  else if (n.k === "bin") { nombresUsados(n.a, s); nombresUsados(n.b, s); }
+  return s;
+}
+
+function cte(v) { return { f: () => v, cte: true, v }; }
+function compilar(n, ent) {
+  switch (n.k) {
+    case "num": return cte(n.c);
+    case "name": {
+      if (n.id === "z") {
+        if (!ent.conZ) throw new Error("aquí no se puede usar z");
+        return { f: z => z, cte: false };
+      }
+      if (n.id in CONSTANTES) return cte(CONSTANTES[n.id]);
+      if (ent.funciones[n.id]) throw new Error(`«${n.id}» es una función: escribe ${n.id}(…)`);
+      throw new Error(`no conozco «${n.id}»`);
+    }
+    case "neg": {
+      const a = compilar(n.a, ent);
+      if (a.cte) return cte(neg(a.v));
+      const fa = a.f; return { f: z => neg(fa(z)), cte: false };
+    }
+    case "call": {
+      const fn = ent.funciones[n.f];
+      if (!fn) {
+        if (n.f === "z" || n.f in CONSTANTES) throw new Error(`«${n.f}» no es una función; usa * para multiplicar`);
+        throw new Error(`no conozco la función «${n.f}»`);
+      }
+      const a = compilar(n.arg, ent);
+      if (a.cte) return cte(fn(a.v));
+      const fa = a.f; return { f: z => fn(fa(z)), cte: false };
+    }
+    case "bin": {
+      const a = compilar(n.a, ent), b = compilar(n.b, ent);
+      if (n.op === "^" && b.cte && b.v.im === 0 && Number.isInteger(b.v.re) && Math.abs(b.v.re) <= 64) {
+        const m = b.v.re;
+        if (a.cte) return cte(cpowi(a.v, m));
+        const fa = a.f;
+        if (m === 2) return { f: z => { const w = fa(z); return mul(w, w); }, cte: false };
+        return { f: z => cpowi(fa(z), m), cte: false };
+      }
+      const op = { "+": add, "-": sub, "*": mul, "/": div, "^": cpow }[n.op];
+      if (a.cte && b.cte) return cte(op(a.v, b.v));
+      const fa = a.f, fb = b.f;
+      if (a.cte) { const va = a.v; return { f: z => op(va, fb(z)), cte: false }; }
+      if (b.cte) { const vb = b.v; return { f: z => op(fa(z), vb), cte: false }; }
+      return { f: z => op(fa(z), fb(z)), cte: false };
+    }
+  }
+  throw new Error("expresión no válida");
+}
+
+function numero(texto, nombre) {
+  if (!String(texto).trim()) throw new Error(`falta el valor de ${nombre}`);
+  try {
+    return compilar(analizar(String(texto)), { conZ: false, funciones: FUNCIONES }).v;
+  } catch (e) { throw new Error(`${nombre}: ${e.message}`); }
+}
+function lista(texto, nombre) {
+  return String(texto).split(",").filter(t => t.trim()).map(t => numero(t, nombre));
+}
+
+function racional(ceros, polos, c) {
+  return z => {
+    let num = c;
+    for (const a of ceros) num = mul(num, sub(z, a));
+    if (!polos.length) return num;
+    let den = UNO;
+    for (const p of polos) den = mul(den, sub(z, p));
+    return div(num, den);
+  };
+}
+
+/* ------------------------- ℘ de Weierstrass ------------------------- */
+function agm(a, b) {
+  for (let i = 0; i < 100; i++) {
+    const a1 = mulr(add(a, b), 0.5);
+    let b1 = csqrt(mul(a, b));
+    if (cabs(sub(a1, b1)) > cabs(add(a1, b1))) b1 = neg(b1);
+    a = a1; b = b1;
+    if (cabs(sub(a, b)) <= 1e-15 * cabs(a)) break;
+  }
+  return a;
+}
+
+function raicesCubica(p, q) {                  // t³ + p t + q = 0
+  const P = t => add(mul(mul(t, t), t), add(mul(p, t), q));
+  const R = 1 + Math.max(cabs(p), cabs(q));
+  const x = [0, 1, 2].map(k => mulr(cexp(C(0, 0.4 + 2 * Math.PI * k / 3)), R));
+  for (let it = 0; it < 2000; it++) {
+    let delta = 0;
+    for (let k = 0; k < 3; k++) {
+      let den = UNO;
+      for (let j = 0; j < 3; j++) if (j !== k) den = mul(den, sub(x[k], x[j]));
+      const d = div(P(x[k]), den);
+      if (!Number.isFinite(d.re) || !Number.isFinite(d.im)) continue;
+      x[k] = sub(x[k], d);
+      delta = Math.max(delta, cabs(d));
+    }
+    if (delta < 1e-16 * R) break;
+  }
+  for (let k = 0; k < 3; k++) {
+    for (let it = 0; it < 4; it++) {
+      const dp = add(mulr(mul(x[k], x[k]), 3), p);
+      const nuevo = sub(x[k], div(P(x[k]), dp));
+      if (Number.isFinite(nuevo.re) && Number.isFinite(nuevo.im) && cabs(P(nuevo)) < cabs(P(x[k]))) x[k] = nuevo;
+      else break;
+    }
+  }
+  return x;
+}
+
+class WeierstrassP {
+  constructor(g2, g3) {
+    this.g2 = g2; this.g3 = g3;
+    this.N = 12;
+    const disc = sub(cpowi(g2, 3), mulr(cpowi(g3, 2), 27));
+    if (cabs(disc) < 1e-12 * Math.max(1, cabs(g2) ** 3, cabs(g3) ** 2))
+      throw new Error("g2³ − 27·g3² = 0: la retícula degenera (℘ no es doblemente periódica)");
+    this.raices = raicesCubica(mulr(g2, -0.25), mulr(g3, -0.25));
+    this.buscarPeriodos();
+    this.fn = z => this.valor(z);
+  }
+
+  buscarPeriodos() {
+    const r = this.raices;
+    const perms = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+    const medioPi = C(Math.PI / 2, 0);
+    let mejor = null;
+    for (const [a, b, c] of perms) {
+      const e1 = r[a], e2 = r[b], e3 = r[c];
+      const s = csqrt(sub(e1, e3));
+      const m = div(sub(e2, e3), sub(e1, e3));
+      const sq1 = csqrt(sub(UNO, m)), sq2 = csqrt(m);
+      for (const sA of [1, -1]) for (const sB of [1, -1]) {
+        const K = div(medioPi, agm(UNO, mulr(sq1, sA)));
+        const Kp = div(medioPi, agm(UNO, mulr(sq2, sB)));
+        const w1 = div(K, s), w3 = div(mul(IU, Kp), s);
+        if (![w1.re, w1.im, w3.re, w3.im].every(Number.isFinite)) continue;
+        if (cabs(w1) === 0 || cabs(w3) === 0) continue;
+        if (Math.abs(div(w3, w1).im) < 1e-10) continue;
+        this.fijarBase(w1, w3);
+        const err = this.errorLaurent();
+        if (!Number.isFinite(err)) continue;
+        if (!mejor || err < mejor[0]) mejor = [err, this.omega1, this.omega3];
+        if (err < 1e-8) return;
+      }
+    }
+    if (!mejor || mejor[0] > 1e-5) throw new Error("no se pudieron determinar los periodos de ℘");
+    this.fijarBase(mejor[1], mejor[2]);
+  }
+
+  fijarBase(w1, w3) {
+    if (div(w3, w1).im < 0) w3 = neg(w3);
+    for (let i = 0; i < 100; i++) {
+      w3 = sub(w3, mulr(w1, Math.round(div(w3, w1).re)));
+      if (cabs(w3) < cabs(w1) * (1 - 1e-14)) { const t = w3; w3 = neg(w1); w1 = t; }
+      else break;
+    }
+    this.omega1 = w1; this.omega3 = w3;
+    const tau = this.tau = div(w3, w1);
+    this.dosW1 = mulr(w1, 2);
+    const N = this.N, PI = Math.PI;
+    this.Lr = new Float64Array(N); this.Li = new Float64Array(N);
+    this.Mr = new Float64Array(N); this.Mi = new Float64Array(N);
+    let t2 = C(0, 0), t3 = C(1, 0);
+    for (let n = 0; n < N; n++) {
+      const r1 = (n + 0.5) ** 2, r2 = n * n;
+      this.Lr[n] = -PI * tau.im * r1; this.Li[n] = PI * tau.re * r1 + PI * n;
+      this.Mr[n] = -PI * tau.im * r2; this.Mi[n] = PI * tau.re * r2 + PI * n;
+      t2 = add(t2, mulr(cexp(C(-PI * tau.im * r1, PI * tau.re * r1)), 2));
+      if (n > 0) t3 = add(t3, mulr(cexp(C(-PI * tau.im * r2, PI * tau.re * r2)), 2));
+    }
+    this.KK = div(mulr(mul(t2, t3), PI), this.dosW1);
+    const t24 = cpowi(t2, 4), t34 = cpowi(t3, 4);
+    this.c = mul(div(C(-(PI ** 2), 0), mulr(mul(w1, w1), 12)), add(t24, t34));
+  }
+
+  errorLaurent() {
+    const r = 0.2 * Math.min(cabs(this.omega1), cabs(this.omega3));
+    let c2 = C(0, 0), c4 = C(0, 0);
+    for (let k = 0; k < 64; k++) {
+      const z = mulr(cexp(C(0, 2 * Math.PI * k / 64)), r);
+      const z2 = mul(z, z);
+      const f = sub(this.valor(z), div(UNO, z2));
+      const fz2 = div(f, z2);
+      c2 = add(c2, fz2); c4 = add(c4, div(fz2, z2));
+    }
+    c2 = mulr(c2, 1 / 64); c4 = mulr(c4, 1 / 64);
+    const escala = 1 + cabs(this.g2) + cabs(this.g3);
+    return (cabs(sub(c2, mulr(this.g2, 1 / 20))) + cabs(sub(c4, mulr(this.g3, 1 / 28)))) / escala;
+  }
+
+  valor(z) {
+    const d = this.dosW1, tau = this.tau;
+    const den = d.re * d.re + d.im * d.im;
+    const ur = (z.re * d.re + z.im * d.im) / den, ui = (z.im * d.re - z.re * d.im) / den;
+    let b = ui / tau.im, a = ur - b * tau.re;
+    a -= Math.round(a); b -= Math.round(b);
+    const vr = Math.PI * (a + b * tau.re), vi = Math.PI * b * tau.im;
+    const avi = Math.abs(vi), N = this.N;
+    const Lr = this.Lr, Li = this.Li, Mr = this.Mr, Mi = this.Mi;
+    let sr = 0, si = 0;
+    for (let n = 0; n < N; n++) {
+      const k = 2 * n + 1;
+      if (n > 0 && Lr[n] + k * avi < -50) break;
+      let e = Math.exp(Lr[n] - k * vi), ang = Li[n] + k * vr;
+      sr += e * Math.cos(ang); si += e * Math.sin(ang);
+      e = Math.exp(Lr[n] + k * vi); ang = Li[n] - k * vr;
+      sr -= e * Math.cos(ang); si -= e * Math.sin(ang);
+    }
+    const t1r = si, t1i = -sr;                    // θ1 = −i·Σ
+    let t4r = 1, t4i = 0;
+    for (let n = 1; n < N; n++) {
+      const k = 2 * n;
+      if (Mr[n] + k * avi < -50) break;
+      let e = Math.exp(Mr[n] - k * vi), ang = Mi[n] + k * vr;
+      t4r += e * Math.cos(ang); t4i += e * Math.sin(ang);
+      e = Math.exp(Mr[n] + k * vi); ang = Mi[n] - k * vr;
+      t4r += e * Math.cos(ang); t4i += e * Math.sin(ang);
+    }
+    const KK = this.KK;
+    const nr = KK.re * t4r - KK.im * t4i, ni = KK.re * t4i + KK.im * t4r;
+    const q = div(C(nr, ni), C(t1r, t1i));
+    return C(q.re * q.re - q.im * q.im + this.c.re, 2 * q.re * q.im + this.c.im);
+  }
+}
+
+function construirCampo(expr, opciones, cacheWP) {
+  const arbol = analizar(expr);
+  const usados = nombresUsados(arbol);
+  const funciones = Object.assign({}, FUNCIONES);
+  let wp = null;
+  if (NOMBRES_WP.some(n => usados.has(n))) {
+    const g2 = numero(opciones.g2, "g2"), g3 = numero(opciones.g3, "g3");
+    const clave = `${g2.re},${g2.im},${g3.re},${g3.im}`;
+    wp = cacheWP.get(clave);
+    if (!wp) { wp = new WeierstrassP(g2, g3); cacheWP.set(clave, wp); }
+    for (const n of NOMBRES_WP) funciones[n] = wp.fn;
+  }
+  if (usados.has("R")) {
+    funciones.R = racional(lista(opciones.ceros, "ceros"), lista(opciones.polos, "polos"),
+                           numero(opciones.constante, "constante"));
+  }
+  const comp = compilar(arbol, { conZ: true, funciones });
+  return { F: comp.f, wp };
+}
+
+if (typeof module !== "undefined") module.exports = { C, analizar, compilar, construirCampo, WeierstrassP, numero, FUNCIONES };
+
+</script>
+<script>
+/* ======================================================================
+   Graficación (líneas de flujo al estilo StreamPlot, flechas, |F| de
+   fondo, barra de color logarítmica) e interfaz.
+   ====================================================================== */
+(function () {
+  const $ = id => document.getElementById(id);
+
+  const EJEMPLOS = [
+    ["℘(z/(1−z))", "wp(z/(1-z))"],
+    ["i·R(℘(z)),  R = (z−1)(z−2)(z−i)", "I*R(wp(z))"],
+    ["℘(z)", "wp(z)"],
+    ["1/℘(z)", "1/wp(z)"],
+    ["℘(√z)", "wp(sqrt(z))"],
+    ["(℘³ − 1)℘", "(wp(z)^3-1)*wp(z)"],
+    ["i z", "I*z"],
+    ["sin z", "sin(z)"],
+    ["sin(iz)·sin z", "sin(I*z)*sin(z)"],
+    ["i·sin(z + sin z)", "I*sin(z+sin(z))"],
+    ["R(sin z)", "R(sin(z))"],
+    ["tan(R(z))", "tan(R(z))"],
+  ];
+  const DEF = { f: "wp(z/(1-z))", g2: "1", g3: "1j", ceros: "1, 2, 1j", polos: "", c: "1",
+                x0: -3, x1: 3, y0: -3, y1: 3, tipo: "stream", dens: 1.6, res: 400, fl: 25,
+                fondo: false, conj: false };
+
+  /* ------------------------------ colores ------------------------------ */
+  const VIRIDIS = [[68, 1, 84], [72, 40, 120], [62, 73, 137], [49, 104, 142], [38, 130, 142],
+                   [31, 158, 137], [53, 183, 121], [110, 206, 88], [181, 222, 43], [253, 231, 37]];
+  function viridis(t) {
+    t = Math.min(1, Math.max(0, t));
+    const x = t * 9, i = Math.min(8, Math.floor(x)), f = x - i, a = VIRIDIS[i], b = VIRIDIS[i + 1];
+    return [0, 1, 2].map(k => Math.round(a[k] + (b[k] - a[k]) * f));
+  }
+  const NB = 64;
+  const PALETA = Array.from({ length: NB }, (_, k) => `rgb(${viridis(k / (NB - 1)).join(",")})`);
+
+  function normalizacion(M) {
+    const paso = Math.max(1, Math.floor(M.length / 200000)), vals = [];
+    for (let k = 0; k < M.length; k += paso) { const m = M[k]; if (m > 0 && Number.isFinite(m)) vals.push(m); }
+    if (!vals.length) return null;
+    const v = Float64Array.from(vals).sort();
+    const pct = p => { const x = p * (v.length - 1), i = Math.floor(x), f = x - i;
+                       return i + 1 < v.length ? v[i] * (1 - f) + v[i + 1] * f : v[i]; };
+    const lo = Math.max(pct(0.02), 1e-12);
+    const hi = Math.max(pct(0.98), lo * 1.0001, 1e-12);
+    return { lo, hi, llo: Math.log(lo), span: Math.log(hi) - Math.log(lo) };
+  }
+  function tColor(norma, m) {
+    if (!norma) return 0.5;
+    if (!(m > 0) || !Number.isFinite(m)) return 1;
+    return Math.min(1, Math.max(0, (Math.log(m) - norma.llo) / norma.span));
+  }
+  const bin = t => Math.round(t * (NB - 1));
+
+  /* ------------------------------ cálculo ------------------------------ */
+  function evaluar(F, lim, n, conj) {
+    const U = new Float32Array(n * n), V = new Float32Array(n * n), M = new Float64Array(n * n);
+    const W = lim.x1 - lim.x0, H = lim.y1 - lim.y0;
+    for (let j = 0; j < n; j++) {
+      const y = lim.y0 + H * j / (n - 1);
+      for (let i = 0; i < n; i++) {
+        const w = F(C(lim.x0 + W * i / (n - 1), y));
+        const u = w.re, v = conj ? -w.im : w.im, m = Math.hypot(u, v), k = j * n + i;
+        if (!Number.isFinite(m) || m === 0) { M[k] = NaN; }
+        else { U[k] = u / m; V[k] = v / m; M[k] = m; }
+      }
+    }
+    return { n, U, V, M };
+  }
+
+  function lineasDeFlujo(campo, lim, densidad, norma) {
+    const { n, U, V, M } = campo, { x0, x1, y0, y1 } = lim;
+    const W = x1 - x0, H = y1 - y0;
+    const mx = Math.max(4, Math.round(30 * densidad)), my = mx;
+    const dxm = W / mx, dym = H / my, h = 0.3 * Math.min(dxm, dym);
+    const maxPasos = Math.ceil(4 * Math.max(W, H) / h);
+    const ocupado = new Uint8Array(mx * my);
+    const celda = (x, y) => {
+      const i = Math.min(mx - 1, Math.floor((x - x0) / dxm)), j = Math.min(my - 1, Math.floor((y - y0) / dym));
+      return j * mx + i;
+    };
+    const dir = (x, y) => {
+      const gx = (x - x0) / W * (n - 1), gy = (y - y0) / H * (n - 1);
+      if (!(gx >= 0 && gy >= 0 && gx <= n - 1 && gy <= n - 1)) return null;
+      const i = Math.min(n - 2, Math.floor(gx)), j = Math.min(n - 2, Math.floor(gy));
+      const fx = gx - i, fy = gy - j, k = j * n + i;
+      const a = (1 - fx) * (1 - fy), b = fx * (1 - fy), c = (1 - fx) * fy, d = fx * fy;
+      const u = a * U[k] + b * U[k + 1] + c * U[k + n] + d * U[k + n + 1];
+      const v = a * V[k] + b * V[k + 1] + c * V[k + n] + d * V[k + n + 1];
+      const m = Math.hypot(u, v);
+      return m > 1e-3 ? [u / m, v / m] : null;
+    };
+    const colorEn = (x, y) => {
+      const i = Math.round((x - x0) / W * (n - 1)), j = Math.round((y - y0) / H * (n - 1));
+      return bin(tColor(norma, M[j * n + i]));
+    };
+    function trazar(xs, ys, s, traj) {
+      const pts = [];
+      let x = xs, y = ys, cel = celda(x, y), previa = null;
+      for (let it = 0; it < maxPasos; it++) {
+        const d1 = dir(x, y); if (!d1) break;
+        const d2 = dir(x + s * d1[0] * h * 0.5, y + s * d1[1] * h * 0.5); if (!d2) break;
+        if (previa && d2[0] * previa[0] + d2[1] * previa[1] < 0) break;
+        const nx = x + s * d2[0] * h, ny = y + s * d2[1] * h;
+        if (nx < x0 || nx > x1 || ny < y0 || ny > y1) break;
+        const c = celda(nx, ny);
+        if (c !== cel) { if (ocupado[c]) break; ocupado[c] = 1; traj.push(c); cel = c; }
+        x = nx; y = ny; pts.push(x, y); previa = d2;
+      }
+      return pts;
+    }
+    const lineas = [], minPuntos = Math.ceil(0.08 * Math.max(W, H) / h);
+    let a0 = 0, b0 = 0, a1 = mx - 1, b1 = my - 1;         // semillas en espiral, de fuera hacia dentro
+    const semillas = [];
+    while (a0 <= a1 && b0 <= b1) {
+      for (let x = a0; x <= a1; x++) semillas.push([x, b0]);
+      for (let y = b0 + 1; y <= b1; y++) semillas.push([a1, y]);
+      if (b1 > b0) for (let x = a1 - 1; x >= a0; x--) semillas.push([x, b1]);
+      if (a1 > a0) for (let y = b1 - 1; y > b0; y--) semillas.push([a0, y]);
+      a0++; b0++; a1--; b1--;
+    }
+    for (const [i, j] of semillas) {
+      const k = j * mx + i;
+      if (ocupado[k]) continue;
+      const xs = x0 + (i + 0.5) * dxm, ys = y0 + (j + 0.5) * dym;
+      if (!dir(xs, ys)) continue;
+      ocupado[k] = 1;
+      const traj = [k];
+      const atras = trazar(xs, ys, -1, traj), adelante = trazar(xs, ys, 1, traj);
+      const np = atras.length / 2 + 1 + adelante.length / 2;
+      if (np < minPuntos) { for (const c of traj) ocupado[c] = 0; continue; }
+      const p = new Float64Array(np * 2);
+      let q = 0;
+      for (let t = atras.length - 2; t >= 0; t -= 2) { p[q++] = atras[t]; p[q++] = atras[t + 1]; }
+      p[q++] = xs; p[q++] = ys;
+      for (let t = 0; t < adelante.length; t++) p[q++] = adelante[t];
+      const col = new Uint8Array(np);
+      for (let t = 0; t < np; t++) col[t] = colorEn(p[2 * t], p[2 * t + 1]);
+      lineas.push({ p, col });
+    }
+    return lineas;
+  }
+
+  function calcularTodo(F, o, lim) {
+    const r = { lim, tipo: o.tipo, expr: o.f.trim() };
+    if (o.fondo || o.tipo !== "vector") {
+      const c = evaluar(F, lim, o.res, o.conj);
+      r.norma = normalizacion(c.M);
+      if (o.fondo && r.norma) {
+        const t = new Float32Array(c.M.length);
+        for (let k = 0; k < t.length; k++) t[k] = Number.isFinite(c.M[k]) ? tColor(r.norma, c.M[k]) : NaN;
+        r.fondo = { n: c.n, t };
+      }
+      if (o.tipo !== "vector") r.lineas = lineasDeFlujo(c, lim, o.dens, r.norma);
+    }
+    if (o.tipo !== "stream") {
+      const c = evaluar(F, lim, o.fl, o.conj);
+      r.vect = { c, norma: normalizacion(c.M), f: o.fl };
+    }
+    r.normaBarra = o.tipo === "vector" ? r.vect.norma : r.norma;
+    return r;
+  }
+
+  /* ------------------------------ dibujo ------------------------------ */
+  const lienzo = $("lienzo"), caja = $("caja"), ctx = lienzo.getContext("2d");
+  let vista = { x0: DEF.x0, x1: DEF.x1, y0: DEF.y0, y1: DEF.y1 };
+  let res = null, Factual = null, capa = null, geo = null;
+
+  const tarjeta = document.querySelector(".grafica");
+  const css = nombre => getComputedStyle(tarjeta).getPropertyValue(nombre).trim();
+  const fuente = (tam, fam) => `${tam}px ${fam === "serif" ? css("--font-mate") : css("--font-ui")}`;
+
+  function geometria(lim) {
+    const cw = Math.max(240, caja.clientWidth);
+    const W = lim.x1 - lim.x0, H = lim.y1 - lim.y0;
+    const estrecho = cw < 560;
+    const L = estrecho ? 46 : 60, R = estrecho ? 14 : 100, T = 40, B = estrecho ? 96 : 50;
+    let pw = cw - L - R, ph = pw * H / W;
+    const maxH = Math.max(220, Math.min(window.innerHeight * 0.84, 980) - T - B);
+    if (ph > maxH) { ph = maxH; pw = ph * W / H; }
+    pw = Math.round(pw); ph = Math.round(ph);
+    return { cw, alto: Math.round(T + ph + B), ox: Math.round((cw - (L + pw + R)) / 2 + L), oy: T, pw, ph, estrecho };
+  }
+
+  function construirCapa(r, pw, ph, dpr) {
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(pw * dpr); cv.height = Math.round(ph * dpr);
+    const c = cv.getContext("2d");
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const { x0, x1, y0, y1 } = r.lim, sx = pw / (x1 - x0), sy = ph / (y1 - y0);
+    const X = x => (x - x0) * sx, Y = y => (y1 - y) * sy;
+
+    if (r.fondo) {
+      const { n, t } = r.fondo, img = document.createElement("canvas");
+      img.width = n; img.height = n;
+      const ic = img.getContext("2d"), data = ic.createImageData(n, n);
+      const tinta = css("--ink-rgb").split(",").map(Number);
+      for (let row = 0; row < n; row++) {
+        const j = n - 1 - row;
+        for (let i = 0; i < n; i++) {
+          const v = t[j * n + i], o = (row * n + i) * 4;
+          data.data[o] = tinta[0]; data.data[o + 1] = tinta[1]; data.data[o + 2] = tinta[2];
+          data.data[o + 3] = Number.isNaN(v) ? 0 : Math.round(0.35 * 255 * v);
+        }
+      }
+      ic.putImageData(data, 0, 0);
+      const dx = (x1 - x0) / (n - 1), dy = (y1 - y0) / (n - 1);
+      c.imageSmoothingEnabled = false;
+      c.drawImage(img, X(x0 - dx / 2), Y(y1 + dy / 2), (x1 - x0 + dx) * sx, (y1 - y0 + dy) * sy);
+    }
+
+    if (r.lineas) {
+      c.lineWidth = 1.2; c.lineJoin = "round"; c.lineCap = "round";
+      for (const { p, col } of r.lineas) {
+        const np = col.length;
+        let b = col[0];
+        c.beginPath(); c.moveTo(X(p[0]), Y(p[1]));
+        for (let k = 1; k < np; k++) {
+          const px = X(p[2 * k]), py = Y(p[2 * k + 1]);
+          c.lineTo(px, py);
+          if (col[k] !== b || k === np - 1) {
+            c.strokeStyle = PALETA[b]; c.stroke();
+            b = col[k]; c.beginPath(); c.moveTo(px, py);
+          }
+        }
+        const m = Math.floor(np / 2), m2 = Math.min(np - 1, m + 1), m1 = m2 - 1;
+        if (m1 >= 0 && m2 > m1) {
+          let dx = X(p[2 * m2]) - X(p[2 * m1]), dy = Y(p[2 * m2 + 1]) - Y(p[2 * m1 + 1]);
+          const d = Math.hypot(dx, dy);
+          if (d > 0) {
+            dx /= d; dy /= d;
+            const ax = X(p[2 * m]), ay = Y(p[2 * m + 1]);
+            c.beginPath();
+            c.moveTo(ax + dx * 5.5, ay + dy * 5.5);
+            c.lineTo(ax - dx * 4.5 - dy * 4, ay - dy * 4.5 + dx * 4);
+            c.lineTo(ax - dx * 4.5 + dy * 4, ay - dy * 4.5 - dx * 4);
+            c.closePath(); c.fillStyle = PALETA[col[m]]; c.fill();
+          }
+        }
+      }
+    }
+
+    if (r.vect) {
+      const { c: campo, norma, f } = r.vect, { n, U, V, M } = campo;
+      const L = 0.9 * pw / f, sw = Math.max(1.2, 0.004 * pw);
+      const hl = Math.min(5 * sw, 0.45 * L), hw = 1.6 * sw;
+      for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+        const k = j * n + i;
+        if (!Number.isFinite(M[k])) continue;
+        const cx = X(x0 + (x1 - x0) * i / (n - 1)), cy = Y(y0 + (y1 - y0) * j / (n - 1));
+        const dx = U[k], dy = -V[k], px = -dy, py = dx;
+        const tx = cx - dx * L / 2, ty = cy - dy * L / 2, hx = cx + dx * L / 2, hy = cy + dy * L / 2;
+        const nx = hx - dx * hl, ny = hy - dy * hl;
+        c.beginPath();
+        c.moveTo(tx + px * sw / 2, ty + py * sw / 2);
+        c.lineTo(nx + px * sw / 2, ny + py * sw / 2);
+        c.lineTo(nx + px * hw, ny + py * hw);
+        c.lineTo(hx, hy);
+        c.lineTo(nx - px * hw, ny - py * hw);
+        c.lineTo(nx - px * sw / 2, ny - py * sw / 2);
+        c.lineTo(tx - px * sw / 2, ty - py * sw / 2);
+        c.closePath();
+        c.fillStyle = PALETA[bin(tColor(norma, M[k]))]; c.fill();
+      }
+    }
+    return { cv, pw, ph, dpr, tema: css("--ink-rgb"), r };
+  }
+
+  function ticksLineales(a, b, cuantos) {
+    const crudo = (b - a) / cuantos, mag = 10 ** Math.floor(Math.log10(crudo)), nn = crudo / mag;
+    const paso = (nn < 1.5 ? 1 : nn < 3 ? 2 : nn < 7 ? 5 : 10) * mag;
+    const dec = Math.max(0, -Math.floor(Math.log10(paso) + 1e-9));
+    const t = [];
+    for (let v = Math.ceil(a / paso - 1e-9) * paso; v <= b + paso * 1e-9; v += paso) {
+      let s = v.toFixed(dec); if (/^-0(\.0+)?$/.test(s)) s = s.slice(1);
+      t.push({ v, s: s.replace("-", "−") });
+    }
+    return t;
+  }
+  const SUP = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
+  const pot10 = k => k === 0 ? "1" : k === 1 ? "10" : "10" + String(k).split("").map(ch => SUP[ch]).join("");
+  function fmtNum(v) {
+    if (v !== 0 && (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e4)) {
+      const e = Math.floor(Math.log10(Math.abs(v))), m = v / 10 ** e;
+      return `${Number(m.toPrecision(2))}×${pot10(e)}`;
+    }
+    return String(Number(v.toPrecision(3)));
+  }
+  function ticksLog(n) {
+    const a = Math.ceil(Math.log10(n.lo) - 1e-9), b = Math.floor(Math.log10(n.hi) + 1e-9);
+    let t = [];
+    for (let k = a; k <= b; k++) t.push({ v: 10 ** k, s: pot10(k) });
+    if (t.length > 7) { const s = Math.ceil(t.length / 6); t = t.filter((_, i) => i % s === 0); }
+    if (t.length < 2) {
+      t = [];
+      for (let k = a - 1; k <= b; k++) for (const m of [1, 2, 5]) {
+        const v = m * 10 ** k; if (v >= n.lo && v <= n.hi) t.push({ v, s: fmtNum(v) });
+      }
+    }
+    if (t.length < 2) t = [{ v: n.lo, s: fmtNum(n.lo) }, { v: n.hi, s: fmtNum(n.hi) }];
+    return t;
+  }
+
+  function dibujar() {
+    const lim = vista, g = geo = geometria(lim), dpr = window.devicePixelRatio || 1;
+    if (lienzo.width !== Math.round(g.cw * dpr) || lienzo.height !== Math.round(g.alto * dpr)) {
+      lienzo.width = Math.round(g.cw * dpr); lienzo.height = Math.round(g.alto * dpr);
+      lienzo.style.height = g.alto + "px";
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = css("--plot-bg"); ctx.fillRect(0, 0, g.cw, g.alto);
+    const tinta = css("--ink"), tenue = css("--muted");
+    const W = lim.x1 - lim.x0, H = lim.y1 - lim.y0;
+    const X = x => g.ox + (x - lim.x0) / W * g.pw, Y = y => g.oy + (lim.y1 - y) / H * g.ph;
+
+    if (res) {
+      if (!capa || capa.r !== res || capa.pw !== g.pw || capa.ph !== g.ph || capa.dpr !== dpr || capa.tema !== css("--ink-rgb"))
+        capa = construirCapa(res, g.pw, g.ph, dpr);
+      ctx.save();
+      ctx.beginPath(); ctx.rect(g.ox, g.oy, g.pw, g.ph); ctx.clip();
+      const a = res.lim;
+      ctx.drawImage(capa.cv, X(a.x0), Y(a.y1), X(a.x1) - X(a.x0), Y(a.y0) - Y(a.y1));
+      ctx.restore();
+    }
+
+    ctx.strokeStyle = tenue; ctx.lineWidth = 1;
+    ctx.strokeRect(g.ox + 0.5, g.oy + 0.5, g.pw - 1, g.ph - 1);
+    ctx.fillStyle = tenue; ctx.font = fuente(12);
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.beginPath();
+    for (const t of ticksLineales(lim.x0, lim.x1, g.pw / 80)) {
+      const x = Math.round(X(t.v)) + 0.5;
+      ctx.moveTo(x, g.oy + g.ph); ctx.lineTo(x, g.oy + g.ph + 5);
+      ctx.fillText(t.s, x, g.oy + g.ph + 8);
+    }
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (const t of ticksLineales(lim.y0, lim.y1, g.ph / 60)) {
+      const y = Math.round(Y(t.v)) + 0.5;
+      ctx.moveTo(g.ox, y); ctx.lineTo(g.ox - 5, y);
+      ctx.fillText(t.s, g.ox - 8, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = tinta; ctx.font = fuente(13);
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillText("Re z", g.ox + g.pw / 2, g.oy + g.ph + 27);
+    ctx.save(); ctx.translate(g.estrecho ? 12 : 16, g.oy + g.ph / 2); ctx.rotate(-Math.PI / 2);
+    ctx.textBaseline = "middle"; ctx.fillText("Im z", 0, 0); ctx.restore();
+
+    if (res) {
+      ctx.font = fuente(16, "serif"); ctx.textBaseline = "alphabetic"; ctx.fillStyle = tinta;
+      let titulo = "F(z) = " + res.expr;
+      while (titulo.length > 10 && ctx.measureText(titulo).width > g.pw) titulo = titulo.slice(0, -2) + "…";
+      ctx.fillText(titulo, g.ox + g.pw / 2, g.oy - 13);
+    }
+
+    const n = res && res.normaBarra;
+    if (n) {
+      const ticks = ticksLog(n), pos = v => (Math.log(v) - n.llo) / n.span;
+      ctx.font = fuente(11); ctx.fillStyle = tenue; ctx.strokeStyle = tenue;
+      if (!g.estrecho) {
+        const bx = g.ox + g.pw + 16, bw = 13, by = g.oy, bh = g.ph;
+        const gr = ctx.createLinearGradient(0, by + bh, 0, by);
+        VIRIDIS.forEach((c, i) => gr.addColorStop(i / 9, `rgb(${c})`));
+        ctx.fillStyle = gr; ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+        ctx.fillStyle = tenue; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        ctx.beginPath();
+        for (const t of ticks) {
+          const y = Math.round(by + bh - pos(t.v) * bh) + 0.5;
+          ctx.moveTo(bx + bw, y); ctx.lineTo(bx + bw + 4, y); ctx.fillText(t.s, bx + bw + 7, y);
+        }
+        ctx.stroke();
+        ctx.save(); ctx.translate(g.cw - 12, by + bh / 2); ctx.rotate(-Math.PI / 2);
+        ctx.font = fuente(13); ctx.fillStyle = tinta; ctx.textAlign = "center"; ctx.fillText("|F(z)|", 0, 0);
+        ctx.restore();
+      } else {
+        const bx = g.ox, bw = g.pw, by = g.oy + g.ph + 50, bh = 11;
+        const gr = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+        VIRIDIS.forEach((c, i) => gr.addColorStop(i / 9, `rgb(${c})`));
+        ctx.fillStyle = gr; ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+        ctx.fillStyle = tenue; ctx.textAlign = "center"; ctx.textBaseline = "top";
+        ctx.beginPath();
+        for (const t of ticks) {
+          const x = Math.round(bx + pos(t.v) * bw) + 0.5;
+          ctx.moveTo(x, by + bh); ctx.lineTo(x, by + bh + 4); ctx.fillText(t.s, x, by + bh + 6);
+        }
+        ctx.stroke();
+        ctx.font = fuente(13); ctx.fillStyle = tinta; ctx.fillText("|F(z)|", bx + bw / 2, by + bh + 22);
+      }
+    }
+  }
+  let pendiente = false;
+  function pedirDibujo() {
+    if (pendiente) return;
+    pendiente = true;
+    requestAnimationFrame(() => { pendiente = false; dibujar(); });
+  }
+
+  /* ------------------------------ interfaz ------------------------------ */
+  const ec = $("ec"), boton = $("graficar"), estadoEl = $("estado");
+  const cacheWP = new Map();
+  let generacion = 0, temporizador = null;
+
+  function estado(html, clase) { estadoEl.innerHTML = html; estadoEl.className = "estado " + (clase || ""); }
+  const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+  function fmtC(c) {
+    if (!c || !Number.isFinite(c.re) || !Number.isFinite(c.im)) return "indefinido";
+    const f = v => String(Number(v.toPrecision(4))).replace("-", "−");
+    const escala = Math.max(Math.abs(c.re), Math.abs(c.im));
+    const re = Math.abs(c.re) < 1e-12 * escala ? 0 : c.re, im = Math.abs(c.im) < 1e-12 * escala ? 0 : c.im;
+    if (im === 0) return f(re);
+    const parteIm = Math.abs(im) === 1 ? "i" : f(Math.abs(im)) + "i";
+    if (re === 0) return (im < 0 ? "−" : "") + parteIm;
+    return `${f(re)} ${im < 0 ? "−" : "+"} ${parteIm}`;
+  }
+
+  function leer() {
+    return {
+      f: ec.value, g2: $("g2").value, g3: $("g3").value, ceros: $("ceros").value,
+      polos: $("polos").value, c: $("cte").value,
+      tipo: document.querySelector('input[name="tipo"]:checked').value,
+      dens: +$("dens").value, res: +$("res").value, fl: +$("fl").value,
+      fondo: $("fondo").checked, conj: $("conj").checked,
+    };
+  }
+  const fmtLim = v => String(Number(v.toPrecision(10)));
+  function mostrarVista() {
+    $("x0").value = fmtLim(vista.x0); $("x1").value = fmtLim(vista.x1);
+    $("y0").value = fmtLim(vista.y0); $("y1").value = fmtLim(vista.y1);
+  }
+  function vistaDesdeCampos() {
+    const v = ["x0", "x1", "y0", "y1"].map(id => parseFloat($(id).value));
+    if (v.every(Number.isFinite)) vista = { x0: v[0], x1: v[1], y0: v[2], y1: v[3] };
+  }
+  function mostrarSliders() {
+    $("dens-v").value = (+$("dens").value).toFixed(1);
+    $("res-v").value = $("res").value;
+    $("fl-v").value = $("fl").value;
+  }
+
+  function guardarURL() {
+    const o = leer(), p = new URLSearchParams();
+    p.set("f", o.f.trim()); p.set("g2", o.g2); p.set("g3", o.g3);
+    p.set("ceros", o.ceros); p.set("polos", o.polos); p.set("c", o.c);
+    for (const k of ["x0", "x1", "y0", "y1"]) p.set(k, fmtLim(vista[k]));
+    p.set("tipo", o.tipo); p.set("dens", o.dens); p.set("res", o.res); p.set("fl", o.fl);
+    if (o.fondo) p.set("fondo", "1");
+    if (o.conj) p.set("conj", "1");
+    try { history.replaceState(null, "", "#" + p.toString()); } catch (e) { /* sin historial */ }
+  }
+  function leerURL() {
+    if (location.hash.length < 2) return;
+    let p;
+    try { p = new URLSearchParams(location.hash.slice(1)); } catch (e) { return; }
+    const poner = (k, id) => { if (p.has(k)) $(id).value = p.get(k); };
+    poner("f", "ec"); poner("g2", "g2"); poner("g3", "g3"); poner("ceros", "ceros");
+    poner("polos", "polos"); poner("c", "cte"); poner("dens", "dens"); poner("res", "res"); poner("fl", "fl");
+    if (p.has("tipo")) { const r = document.querySelector(`input[name="tipo"][value="${CSS.escape(p.get("tipo"))}"]`); if (r) r.checked = true; }
+    $("fondo").checked = p.get("fondo") === "1";
+    $("conj").checked = p.get("conj") === "1";
+    const v = ["x0", "x1", "y0", "y1"].map(k => parseFloat(p.get(k)));
+    if (v.every(Number.isFinite)) vista = { x0: v[0], x1: v[1], y0: v[2], y1: v[3] };
+  }
+
+  function graficar() {
+    clearTimeout(temporizador);
+    const gen = ++generacion, o = leer(), lim = { ...vista };
+    let F, wp;
+    try {
+      if (!(lim.x0 < lim.x1 && lim.y0 < lim.y1)) throw new Error("revisa los límites: el mínimo debe ser menor que el máximo");
+      ({ F, wp } = construirCampo(o.f, { g2: o.g2, g3: o.g3, ceros: o.ceros, polos: o.polos, constante: o.c }, cacheWP));
+    } catch (e) {
+      estado(`<b>Error:</b> ${esc(e.message)}`, "error");
+      return;
+    }
+    estado("Calculando…", "calc");
+    boton.disabled = true;
+    setTimeout(() => {
+      if (gen !== generacion) return;
+      try {
+        const t0 = performance.now();
+        res = calcularTodo(F, o, lim);
+        Factual = F; capa = null;
+        dibujar();
+        const s = ((performance.now() - t0) / 1000).toFixed(2);
+        let msg = `Listo en ${s} s.`;
+        if (wp) msg += ` Periodos de ℘: 2ω₁ = ${esc(fmtC(mulr(wp.omega1, 2)))}, 2ω₃ = ${esc(fmtC(mulr(wp.omega3, 2)))}.`;
+        estado(msg, "ok");
+        guardarURL();
+      } catch (e) {
+        estado(`<b>Error:</b> ${esc(e.message)}`, "error");
+      } finally {
+        if (gen === generacion) boton.disabled = false;
+      }
+    }, 30);
+  }
+  const graficarLuego = (ms = 350) => { clearTimeout(temporizador); temporizador = setTimeout(graficar, ms); };
+
+  // ejemplos
+  const sel = $("ejemplos");
+  for (const [nombre, expr] of EJEMPLOS) { const op = document.createElement("option"); op.value = expr; op.textContent = nombre; sel.appendChild(op); }
+  sel.addEventListener("change", () => { if (!sel.value) return; ec.value = sel.value; sel.value = ""; graficar(); });
+
+  boton.addEventListener("click", graficar);
+  ec.addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); graficar(); } });
+  for (const id of ["g2", "g3", "ceros", "polos", "cte", "fondo", "conj"]) $(id).addEventListener("change", graficar);
+  for (const id of ["x0", "x1", "y0", "y1"]) $(id).addEventListener("change", () => { vistaDesdeCampos(); graficar(); });
+  for (const id of ["dens", "res", "fl"]) {
+    $(id).addEventListener("input", mostrarSliders);
+    $(id).addEventListener("change", graficar);
+  }
+  document.querySelectorAll('input[name="tipo"]').forEach(r => r.addEventListener("change", graficar));
+
+  function zoom(f, cx, cy) {
+    if (cx === undefined) { cx = (vista.x0 + vista.x1) / 2; cy = (vista.y0 + vista.y1) / 2; }
+    vista = { x0: cx - (cx - vista.x0) * f, x1: cx + (vista.x1 - cx) * f,
+              y0: cy - (cy - vista.y0) * f, y1: cy + (vista.y1 - cy) * f };
+    mostrarVista();
+  }
+  $("acercar").addEventListener("click", () => { zoom(0.6); graficar(); });
+  $("alejar").addEventListener("click", () => { zoom(1 / 0.6); graficar(); });
+  $("inicial").addEventListener("click", () => {
+    vista = { x0: DEF.x0, x1: DEF.x1, y0: DEF.y0, y1: DEF.y1 }; mostrarVista(); graficar();
+  });
+
+  // lienzo: rueda, arrastre y lectura de valores
+  const aDatos = e => {
+    const r = lienzo.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, g = geo;
+    const dentro = px >= g.ox && px <= g.ox + g.pw && py >= g.oy && py <= g.oy + g.ph;
+    return { dentro, x: vista.x0 + (px - g.ox) / g.pw * (vista.x1 - vista.x0), y: vista.y1 - (py - g.oy) / g.ph * (vista.y1 - vista.y0) };
+  };
+  lienzo.addEventListener("wheel", e => {
+    if (!geo) return;
+    const d = aDatos(e);
+    if (!d.dentro) return;
+    e.preventDefault();
+    const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+    zoom(Math.exp(Math.sign(dy) * Math.min(Math.abs(dy), 300) * 0.0018), d.x, d.y);
+    pedirDibujo(); graficarLuego();
+  }, { passive: false });
+
+  let arrastre = null;
+  lienzo.addEventListener("pointerdown", e => {
+    if (!geo || e.button !== 0) return;
+    if (!aDatos(e).dentro) return;
+    arrastre = { x: e.clientX, y: e.clientY, lim: { ...vista }, movido: false };
+    lienzo.setPointerCapture(e.pointerId);
+    lienzo.classList.add("arrastrando");
+  });
+  lienzo.addEventListener("pointermove", e => {
+    if (arrastre) {
+      const dx = e.clientX - arrastre.x, dy = e.clientY - arrastre.y;
+      if (Math.abs(dx) + Math.abs(dy) > 2) arrastre.movido = true;
+      const a = arrastre.lim, W = a.x1 - a.x0, H = a.y1 - a.y0;
+      const sx = -dx / geo.pw * W, sy = dy / geo.ph * H;
+      vista = { x0: a.x0 + sx, x1: a.x1 + sx, y0: a.y0 + sy, y1: a.y1 + sy };
+      mostrarVista(); pedirDibujo();
+      return;
+    }
+    if (!geo) return;
+    const d = aDatos(e);
+    if (!d.dentro) { $("lectura").textContent = ""; return; }
+    const z = C(d.x, d.y);
+    const w = Factual ? Factual(z) : null;
+    $("lectura").innerHTML = `<span><i>z</i> = ${esc(fmtC(z))}</span><span><i>F</i>(<i>z</i>) = ${esc(fmtC(w))}</span>` +
+      (w ? `<span>|<i>F</i>| = ${esc(fmtC(C(cabs(w), 0)))}</span>` : "");
+  });
+  const soltar = () => {
+    if (!arrastre) return;
+    const movido = arrastre.movido;
+    arrastre = null; lienzo.classList.remove("arrastrando");
+    if (movido) graficar();
+  };
+  lienzo.addEventListener("pointerup", soltar);
+  lienzo.addEventListener("pointercancel", soltar);
+  lienzo.addEventListener("pointerleave", () => { if (!arrastre) $("lectura").textContent = ""; });
+
+  $("descargar").addEventListener("click", () => {
+    lienzo.toBlob(b => {
+      if (!b) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(b); a.download = "campo.png";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }, "image/png");
+  });
+  $("enlace").addEventListener("click", async () => {
+    const aviso = $("aviso");
+    try { await navigator.clipboard.writeText(location.href); aviso.textContent = "Enlace copiado."; }
+    catch (e) { window.prompt("Copia este enlace:", location.href); aviso.textContent = ""; }
+    setTimeout(() => { aviso.textContent = ""; }, 2500);
+  });
+
+  new ResizeObserver(pedirDibujo).observe(caja);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { capa = null; pedirDibujo(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(pedirDibujo);
+
+  ec.value = DEF.f;
+  if (window.innerWidth < 880) document.querySelector("details.ayuda").open = false;
+  leerURL();
+  mostrarVista(); mostrarSliders();
+  dibujar();
+  graficar();
+})();
+
+</script>
+</body>
+</html>
