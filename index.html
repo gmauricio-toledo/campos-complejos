@@ -102,6 +102,18 @@
     border: 0; border-radius: 4px; padding: 10px 22px; cursor: pointer;
   }
   .primario:disabled { opacity: .6; cursor: progress; }
+  .fila-presets, .preset-form { display: flex; gap: 6px; align-items: stretch; }
+  .fila-presets select { flex: 1 1 auto; min-width: 0; }
+  .preset-form { margin-top: 6px; }
+  .preset-form input { flex: 1 1 auto; min-width: 0; font-family: var(--font-ui); }
+  .secundario {
+    flex: none; font: 500 13.5px var(--font-ui); color: var(--ink); background: var(--field);
+    border: 1px solid var(--line); border-radius: 4px; padding: 0 11px; cursor: pointer;
+  }
+  .secundario:hover { border-color: var(--muted); }
+  .secundario.fuerte { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .preset-aviso { margin: 4px 0 0; min-height: 1.2em; font-size: 12.5px; color: var(--ok); }
+  .preset-aviso.error { color: var(--error); }
   .atajo { font-size: 12.5px; color: var(--muted); }
   kbd { font: 500 11.5px var(--font-mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; background: var(--panel); }
   .estado { min-height: 1.5em; margin: 10px 0 0; font-size: 13.5px; color: var(--muted); }
@@ -176,8 +188,18 @@
 
   <section class="ecuacion" aria-label="Ecuación">
     <div class="campo">
-      <label for="ejemplos">Ejemplos</label>
-      <select id="ejemplos"><option value="">Elige un ejemplo…</option></select>
+      <label for="ejemplos">Ejemplos y presets</label>
+      <div class="fila-presets">
+        <select id="ejemplos"><option value="">Elige un ejemplo o preset…</option></select>
+        <button id="preset-nuevo" type="button" class="secundario" title="Guardar la función y todos los parámetros como preset">Guardar</button>
+        <button id="preset-borrar" type="button" class="secundario" title="Borrar el preset seleccionado" hidden>Borrar</button>
+      </div>
+      <div id="preset-form" class="preset-form" hidden>
+        <input id="preset-nombre" type="text" maxlength="60" placeholder="Nombre del preset" aria-label="Nombre del preset" spellcheck="false">
+        <button id="preset-ok" type="button" class="secundario fuerte">Guardar</button>
+        <button id="preset-cancelar" type="button" class="secundario">Cancelar</button>
+      </div>
+      <p id="preset-aviso" class="preset-aviso" role="status"></p>
     </div>
     <label class="fz" for="ec">F<span>(</span>z<span>) =</span></label>
     <textarea id="ec" rows="2" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" placeholder="p. ej. wp(z/(1-z))"></textarea>
@@ -1170,10 +1192,101 @@ if (typeof module !== "undefined") module.exports = { C, analizar, compilar, con
   }
   const graficarLuego = (ms = 350) => { clearTimeout(temporizador); temporizador = setTimeout(graficar, ms); };
 
-  // ejemplos
+  // ejemplos y presets
   const sel = $("ejemplos");
-  for (const [nombre, expr] of EJEMPLOS) { const op = document.createElement("option"); op.value = expr; op.textContent = nombre; sel.appendChild(op); }
-  sel.addEventListener("change", () => { if (!sel.value) return; ec.value = sel.value; sel.value = ""; graficar(); });
+  const CLAVE_PRESETS = "campos-complejos:presets";
+  let presets = cargarPresets();
+
+  function cargarPresets() {
+    try {
+      const datos = JSON.parse(localStorage.getItem(CLAVE_PRESETS) || "[]");
+      return Array.isArray(datos) ? datos.filter(p => p && typeof p.nombre === "string" && p.o) : [];
+    } catch (e) { return []; }
+  }
+  function guardarPresets() {
+    try { localStorage.setItem(CLAVE_PRESETS, JSON.stringify(presets)); return true; }
+    catch (e) { return false; }
+  }
+  function avisoPreset(txt, error) {
+    const a = $("preset-aviso");
+    a.textContent = txt; a.className = "preset-aviso" + (error ? " error" : "");
+    clearTimeout(avisoPreset.t);
+    if (txt) avisoPreset.t = setTimeout(() => { a.textContent = ""; }, 3000);
+  }
+  function llenarMenu(seleccion) {
+    sel.length = 1;
+    const grupoEj = document.createElement("optgroup"); grupoEj.label = "Ejemplos";
+    for (const [nombre, expr] of EJEMPLOS) grupoEj.appendChild(new Option(nombre, "e:" + expr));
+    sel.appendChild(grupoEj);
+    if (presets.length) {
+      const grupoP = document.createElement("optgroup"); grupoP.label = "Mis presets";
+      for (const p of presets) grupoP.appendChild(new Option(p.nombre, "p:" + p.nombre));
+      sel.appendChild(grupoP);
+    }
+    sel.value = seleccion || "";
+    $("preset-borrar").hidden = !sel.value.startsWith("p:");
+  }
+  function aplicarPreset(o) {
+    ec.value = o.f ?? DEF.f;
+    $("g2").value = o.g2 ?? DEF.g2; $("g3").value = o.g3 ?? DEF.g3;
+    $("ceros").value = o.ceros ?? DEF.ceros; $("polos").value = o.polos ?? DEF.polos; $("cte").value = o.c ?? DEF.c;
+    $("dens").value = o.dens ?? DEF.dens; $("res").value = o.res ?? DEF.res; $("fl").value = o.fl ?? DEF.fl;
+    const r = document.querySelector(`input[name="tipo"][value="${CSS.escape(o.tipo || DEF.tipo)}"]`);
+    if (r) r.checked = true;
+    $("fondo").checked = !!o.fondo; $("conj").checked = !!o.conj;
+    const v = [o.x0, o.x1, o.y0, o.y1].map(Number);
+    if (v.every(Number.isFinite)) vista = { x0: v[0], x1: v[1], y0: v[2], y1: v[3] };
+    mostrarVista(); mostrarSliders(); graficar();
+  }
+
+  sel.addEventListener("change", () => {
+    const v = sel.value;
+    $("preset-borrar").hidden = !v.startsWith("p:");
+    if (v.startsWith("e:")) { ec.value = v.slice(2); sel.value = ""; graficar(); }
+    else if (v.startsWith("p:")) {
+      const p = presets.find(p => p.nombre === v.slice(2));
+      if (p) aplicarPreset(p.o);
+    }
+  });
+
+  const form = $("preset-form"), nombreEl = $("preset-nombre");
+  function abrirForm() {
+    form.hidden = false;
+    nombreEl.value = sel.value.startsWith("p:") ? sel.value.slice(2) : "";
+    nombreEl.focus(); nombreEl.select();
+  }
+  function cerrarForm() { form.hidden = true; avisoPreset(""); }
+  function confirmarPreset() {
+    const nombre = nombreEl.value.trim();
+    if (!nombre) { avisoPreset("Escribe un nombre para el preset.", true); nombreEl.focus(); return; }
+    const o = { ...leer(), ...vista };
+    const i = presets.findIndex(p => p.nombre === nombre);
+    if (i >= 0) {
+      if (!window.confirm(`Ya existe un preset llamado “${nombre}”. ¿Reemplazarlo?`)) return;
+      presets[i] = { nombre, o };
+    } else presets.push({ nombre, o });
+    const ok = guardarPresets();
+    llenarMenu("p:" + nombre);
+    form.hidden = true;
+    avisoPreset(ok ? `Preset “${nombre}” guardado.` : "Guardado solo en esta sesión: el navegador no permite almacenamiento.", !ok);
+  }
+  $("preset-nuevo").addEventListener("click", () => form.hidden ? abrirForm() : cerrarForm());
+  $("preset-ok").addEventListener("click", confirmarPreset);
+  $("preset-cancelar").addEventListener("click", cerrarForm);
+  nombreEl.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); confirmarPreset(); }
+    else if (e.key === "Escape") { e.preventDefault(); cerrarForm(); }
+  });
+  $("preset-borrar").addEventListener("click", () => {
+    if (!sel.value.startsWith("p:")) return;
+    const nombre = sel.value.slice(2);
+    if (!window.confirm(`¿Borrar el preset “${nombre}”?`)) return;
+    presets = presets.filter(p => p.nombre !== nombre);
+    guardarPresets();
+    llenarMenu("");
+    avisoPreset(`Preset “${nombre}” borrado.`);
+  });
+  llenarMenu("");
 
   boton.addEventListener("click", graficar);
   ec.addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); graficar(); } });
